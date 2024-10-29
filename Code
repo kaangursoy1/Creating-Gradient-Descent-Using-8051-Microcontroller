@@ -1,0 +1,328 @@
+ORG 00H
+LJMP MAINPROGRAM
+
+ORG 20H
+    MOV TMOD, #02H
+    MOV TH0, #-92
+    MOV IE, #82H
+    MOV A, 22H
+    ADD A, #30H
+    ACALL SEND_DATA
+    MOV A, 23H
+    ADD A, #30H
+    ACALL SEND_DATA
+
+ORG 50H
+MAINPROGRAM:
+    ACALL CONFIGURE_LCD
+
+    MOV R2, #250D
+    MOV R3, #250D
+    MOV R4, #250D
+    MOV R5, #250D
+
+; INITIALS:
+    MOV 20H, #00001101B  ; -3 a
+    MOV 21H, #00000010B  ; 2 b
+
+; ESTIMATIONS
+    MOV 22H, #00001111B  ; -1 a
+    MOV 23H, #00000100B  ; 4 b
+
+    MOV DPTR, #XVALUES
+
+LOOP3:
+    MOVC A, @A+DPTR
+    ANL A, #0FH
+    MOV R7, A   ; R7 = X
+
+LOOP1:
+    JB 03H, ANEG
+    JB A.3, XNEGAPOS
+
+; Both positive
+    MOV B, 20H
+    MUL AB
+    ANL A, #00001111B
+    SJMP APOSITIVE
+
+ANEG:
+    JB A.3, XVEANEG
+
+; a (20H) negative, x positive
+    MOV A, 20H
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV B, R7
+    MUL AB
+    CPL A
+    INC A
+    ANL A, #00001111B
+    SJMP ANEGATIVE
+
+; a positive, x negative
+XNEGAPOS:
+    MOV B, 20H
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MUL AB
+    CPL A
+    INC A
+    ANL A, #00001111B
+    SJMP ANEGATIVE
+
+XVEANEG:
+    MOV A, 20H
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV A, R7
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MUL AB
+    CPL A
+    INC A
+    ANL A, #00001111B
+
+APOSITIVE:
+    MOV R7, A
+    MOV B, 21H
+    JB B.3, BNEG
+    ADD A, B
+    LJMP JUMP1
+
+BNEG:
+    MOV A, B
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV B, A
+    MOV A, R7
+    SUBB A, B
+    SJMP JUMP1
+
+ANEGATIVE:
+    MOV R7, A
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV R6, A
+    MOV B, 21H
+    JB B.3, BNEG1
+    MOV A, B
+    MOV B, R6
+    SUBB A, B
+    SJMP JUMP1
+
+BNEG1:
+    MOV A, R7
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV R7, A
+    MOV A, B
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV B, A
+    MOV A, R7
+    ADD A, B
+    CPL A
+    INC A
+    ANL A, #00001111B
+
+JUMP1:
+    MOV R0, A  ; RO = REAL YVALUE
+
+; Calculation of estimation
+    MOVC A, @A+DPTR
+    ANL A, #00001111B
+
+    JB 13H, ANEG1
+    JB A.3, XNEGAPOS1
+
+; Both positive
+    MOV B, 22H
+    MUL AB
+    ANL A, #00001111B
+    SJMP APOSITIVE1
+
+ANEG1:
+    MOV R7, A
+    JB A.3, XVEANEG1
+
+; a (22H) negative, x positive
+    MOV A, 22H
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV B, A
+    MOV A, R7
+    MUL AB
+    CPL A
+    INC A
+    ANL A, #00001111B
+    SJMP ANEGATIVE1
+
+; a positive, x negative
+XNEGAPOS1:
+    MOV B, 22H
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MUL AB
+    CPL A
+    INC A
+    ANL A, #00001111B
+    SJMP ANEGATIVE1
+
+XVEANEG1:
+    MOV R7, A
+    MOV A, 22H
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV B, A
+    MOV A, R7
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MUL AB
+    ANL A, #00001111B
+
+APOSITIVE1:
+    MOV R7, A
+    MOV B, 23H
+    JB B.3, BNEG11
+    ADD A, B
+    SJMP JUMP2
+
+LOOP2:
+    LJMP LOOP3
+
+BNEG11:
+    MOV A, B
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV B, A
+    MOV A, R7
+    SUBB A, B
+    SJMP JUMP2
+
+ANEGATIVE1:
+    MOV R7, A
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV R6, A
+    MOV B, 23H
+    JB B.3, BNEG111
+    MOV A, B
+    MOV B, R6
+    SUBB A, B
+    SJMP JUMP2
+
+BNEG111:
+    MOV A, B
+    CPL A
+    INC A
+    ANL A, #00001111B
+    MOV B, A
+    MOV A, R6
+    ADD A, B
+    CPL A
+    INC A
+    ANL A, #00001111B
+
+JUMP2:
+    MOV R1, A  ; R1 = ESTIMATED Y VALUE
+
+CLR CY
+MOV A, R0  ; REAL
+MOV B, R1  ; ESTIMATION
+
+JB A.3, KKK
+JB B.3, LLL
+CJNE A, B, CCC
+SJMP EQUALL
+
+CCC: 
+    JC BGREATERA
+    SJMP AGREATERB
+
+KKK:
+    JB B.3, TTT
+    SJMP BGREATERA
+
+LLL:
+    SJMP AGREATERB
+
+TTT:
+    CJNE A, B, AAA
+    SJMP EQUALL
+
+AAA:
+    JC BGREATERA
+    SJMP AGREATERB
+
+BGREATERA:
+    MOV A, 22H
+    DEC A
+    MOV 22H, A
+    MOV A, 23H
+    DEC A
+    MOV 23H, A
+    SJMP YTYT
+
+AGREATERB:
+    MOV A, 22H
+    INC A
+    MOV 22H, A
+    MOV A, 23H
+    INC A
+    MOV 23H, A
+    CLR A
+
+YTYT:
+    LJMP LOOP1
+
+EQUALL:
+    INC DPTR
+    DJNZ R4, LLLL
+    DJNZ R3, LLLL
+    DJNZ R2, LLLL
+    DJNZ R5, LOOP2
+
+LLLL:
+    LJMP LOOP2
+
+CONFIGURE_LCD:
+    ; This subroutine sends the initialization commands to the LCD
+    MOV A, #38H  ; Two lines, 5x7 matrix
+    ACALL SEND_COMMAND
+    MOV A, #0FH  ; Display on, cursor blinking
+    ACALL SEND_COMMAND
+    MOV A, #06H  ; Increment cursor (shift cursor to right)
+    ACALL SEND_COMMAND
+    MOV A, #01H  ; Clear display screen
+    ACALL SEND_COMMAND
+    MOV A, #80H  ; Force cursor to beginning of the first line
+    ACALL SEND_COMMAND
+    RET
+
+SEND_COMMAND:
+    MOV P1, A       ; The command is stored in A, send it to LCD
+    CLR P3.5        ; RS=0 before sending command
+    CLR P3.6        ; R/W=0 to write
+    SETB P3.7       ; Send a high to low signal to enable pin
+    ACALL DELAY
+    CLR P3.7
+    RET
+
+SEND_DATA:
+    MOV P1, A       ; Send the data stored in A to LCD
+    SETB P3.5       ; RS=1 before sending
